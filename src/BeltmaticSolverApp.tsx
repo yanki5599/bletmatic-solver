@@ -1,11 +1,14 @@
-import  { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import type { JSX } from "react";
+import { bfsSolve, dijkstraSolve, treeCombineSolve } from "./solver/algorithms";
+import { getCache, makeKey, setCache } from "./solver/cashe";
 
 type Solution = {
   value: number;
   expr: string;
   numberUses: number;
   ops: number;
+  algorithm: string;
 };
 
 type Operation = {
@@ -21,7 +24,7 @@ export default function BeltmaticSolverApp(): JSX.Element {
   const [allowSub, setAllowSub] = useState(true);
   const [allowMul, setAllowMul] = useState(true);
   const [allowDiv, setAllowDiv] = useState(false);
-
+  const [algorithm, setAlgorithm] = useState<"BFS" | "DIJKSTRA">("DIJKSTRA");
   const [solutions, setSolutions] = useState<Solution[]>([]);
   const [searching, setSearching] = useState(false);
 
@@ -62,119 +65,43 @@ export default function BeltmaticSolverApp(): JSX.Element {
     return ops;
   }, [allowAdd, allowSub, allowMul, allowDiv]);
 
-function solve() {
-  const goal = Number(target);
+  function solve() {
+    const goal = Number(target);
 
-  if (Number.isNaN(goal) || numbers.length === 0 || solverOps.length === 0) {
-    return;
+    if (Number.isNaN(goal)) return;
+
+    const opsSymbols = solverOps.map(o => o.symbol);
+
+    const key = makeKey(goal, numbers, opsSymbols, algorithm);
+
+    const cached = getCache(key);
+    if (cached) {
+      setSolutions(cached);
+      return;
+    }
+
+    setSearching(true);
+
+    setTimeout(() => {
+      const MAX_ABS = Math.max(goal * 3, 500);
+
+      let result;
+
+      if (algorithm === "BFS") {
+        result = bfsSolve(numbers, solverOps, goal, MAX_ABS, 20);
+      } else if (algorithm === "DIJKSTRA") {
+        result = dijkstraSolve(numbers, solverOps, goal, MAX_ABS, 20);
+      } else if (algorithm === "TREE") {
+        result = treeCombineSolve(numbers, solverOps, goal, MAX_ABS, 20);
+      }
+      else { return; }
+
+      setCache(key, result);
+
+      setSolutions(result);
+      setSearching(false);
+    }, 10);
   }
-
-  setSearching(true);
-
-  setTimeout(() => {
-    const MAX_ABS = Math.max(goal * 3, 500);
-    const MAX_STATES = 20000;
-    const MAX_SOLUTIONS = 20;
-
-    type Node = {
-      value: number;
-      ops: number;
-      prev?: Node;
-      opSymbol?: string;
-      right?: number;
-    };
-
-    // BEST cost per value (critical pruning)
-    const best = new Map<number, number>();
-
-    const solutions: Solution[] = [];
-
-    // "priority queue" (we avoid constant full sorting)
-    let queue: Node[] = numbers.map((n) => ({
-      value: n,
-      ops: 0,
-    }));
-
-    function push(node: Node) {
-      if (Math.abs(node.value) > MAX_ABS) return;
-
-      const prevBest = best.get(node.value);
-
-      if (prevBest !== undefined && prevBest <= node.ops) return;
-
-      best.set(node.value, node.ops);
-      queue.push(node);
-    }
-
-    function buildExpr(node: Node): string {
-      if (!node.prev) return String(node.value);
-
-      return `(${buildExpr(node.prev)} ${node.opSymbol} ${node.right})`;
-    }
-
-    let iterations = 0;
-
-    while (
-      queue.length &&
-      solutions.length < MAX_SOLUTIONS &&
-      iterations < 20000
-    ) {
-      iterations++;
-
-      // instead of full sort every time → partial selection
-      let bestIndex = 0;
-      for (let i = 1; i < queue.length; i++) {
-        if (queue[i].ops < queue[bestIndex].ops) {
-          bestIndex = i;
-        }
-      }
-
-      const current = queue.splice(bestIndex, 1)[0];
-      const { value, ops } = current;
-
-      if (value === goal) {
-        solutions.push({
-          value,
-          expr: buildExpr(current),
-          numberUses: 0,
-          ops,
-        });
-        continue;
-      }
-
-      for (const nextNumber of numbers) {
-        for (const op of solverOps) {
-          const r = op.fn(value, nextNumber);
-
-          if (r == null || !Number.isFinite(r)) continue;
-          if (Math.abs(r) > MAX_ABS) continue;
-
-          // commutative pruning
-          if ((op.symbol === "+" || op.symbol === "*") && value > nextNumber) {
-            continue;
-          } 
-
-          push({
-            value: r,
-            ops: ops + 1,
-            prev: current,
-            opSymbol: op.symbol,
-            right: nextNumber,
-          });
-        }
-      }
-
-      if (queue.length > MAX_STATES) {
-        queue.length = MAX_STATES;
-      }
-    }
-
-    solutions.sort((a, b) => a.ops - b.ops);
-
-    setSolutions(solutions);
-    setSearching(false);
-  }, 10);
-}
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-gray-900 to-black text-white p-6">
@@ -253,6 +180,18 @@ function solve() {
                 ))}
               </div>
             </div>
+            <div className="text-sm font-semibold text-cyan-300 mb-3">
+              Algorithm
+            </div>
+            <select
+              value={algorithm}
+              onChange={(e) => setAlgorithm(e.target.value as any)}
+              className="w-full bg-black/30 border border-white/10 rounded-2xl p-3"
+            >
+              <option value="BFS">BFS (Fast)</option>
+              <option value="DIJKSTRA">Dijkstra (Optimal)</option>
+              <option value="TREE">"TREE"</option>
+            </select>
 
             <button
               onClick={solve}
@@ -284,8 +223,12 @@ function solve() {
                     <div className="flex gap-2 mt-3 flex-wrap text-sm">
                       <div>Uses: {solution.numberUses}</div>
                       <div>Ops: {solution.ops}</div>
-                      <div>= {solution.value}</div>
-                    </div>
+                      <div>= {solution.value}</div>  
+                      </div>
+                      <div className="text-xs text-gray-400 mb-1">
+                        {solution.algorithm}
+                      </div>
+                  
                   </div>
                 ))}
               </div>
