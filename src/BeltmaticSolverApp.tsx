@@ -62,85 +62,119 @@ export default function BeltmaticSolverApp(): JSX.Element {
     return ops;
   }, [allowAdd, allowSub, allowMul, allowDiv]);
 
-  function solve() {
-    const goal = Number(target);
+function solve() {
+  const goal = Number(target);
 
-    if (Number.isNaN(goal) || numbers.length === 0 || solverOps.length === 0) {
-      return;
+  if (Number.isNaN(goal) || numbers.length === 0 || solverOps.length === 0) {
+    return;
+  }
+
+  setSearching(true);
+
+  setTimeout(() => {
+    const MAX_ABS = Math.max(goal * 3, 500);
+    const MAX_STATES = 20000;
+    const MAX_SOLUTIONS = 20;
+
+    type Node = {
+      value: number;
+      ops: number;
+      prev?: Node;
+      opSymbol?: string;
+      right?: number;
+    };
+
+    // BEST cost per value (critical pruning)
+    const best = new Map<number, number>();
+
+    const solutions: Solution[] = [];
+
+    // "priority queue" (we avoid constant full sorting)
+    let queue: Node[] = numbers.map((n) => ({
+      value: n,
+      ops: 0,
+    }));
+
+    function push(node: Node) {
+      if (Math.abs(node.value) > MAX_ABS) return;
+
+      const prevBest = best.get(node.value);
+
+      if (prevBest !== undefined && prevBest <= node.ops) return;
+
+      best.set(node.value, node.ops);
+      queue.push(node);
     }
 
-    setSearching(true);
+    function buildExpr(node: Node): string {
+      if (!node.prev) return String(node.value);
 
-    setTimeout(() => {
-      const queue: Solution[] = [];
-      const visited = new Set<string>();
-      const found: Solution[] = [];
+      return `(${buildExpr(node.prev)} ${node.opSymbol} ${node.right})`;
+    }
 
-      const MAX_ABS = Math.max(goal * 3, 500);
-      const MAX_DEPTH = 6;
-      const MAX_SOLUTIONS = 12;
+    let iterations = 0;
 
-      for (const n of numbers) {
-        queue.push({
-          value: n,
-          expr: `${n}`,
-          numberUses: 1,
-          ops: 0,
+    while (
+      queue.length &&
+      solutions.length < MAX_SOLUTIONS &&
+      iterations < 20000
+    ) {
+      iterations++;
+
+      // instead of full sort every time → partial selection
+      let bestIndex = 0;
+      for (let i = 1; i < queue.length; i++) {
+        if (queue[i].ops < queue[bestIndex].ops) {
+          bestIndex = i;
+        }
+      }
+
+      const current = queue.splice(bestIndex, 1)[0];
+      const { value, ops } = current;
+
+      if (value === goal) {
+        solutions.push({
+          value,
+          expr: buildExpr(current),
+          numberUses: 0,
+          ops,
         });
-
-        visited.add(`${n}|1`);
+        continue;
       }
 
-      while (queue.length > 0 && found.length < MAX_SOLUTIONS) {
-        const current = queue.shift();
-        if (!current) continue;
+      for (const nextNumber of numbers) {
+        for (const op of solverOps) {
+          const r = op.fn(value, nextNumber);
 
-        if (current.value === goal) {
-          found.push(current);
-          continue;
-        }
+          if (r == null || !Number.isFinite(r)) continue;
+          if (Math.abs(r) > MAX_ABS) continue;
 
-        if (current.numberUses >= MAX_DEPTH) continue;
+          // commutative pruning
+          if ((op.symbol === "+" || op.symbol === "*") && value > nextNumber) {
+            continue;
+          } 
 
-        for (const nextNumber of numbers) {
-          for (const op of solverOps) {
-            let result: number | null;
-
-            try {
-              result = op.fn(current.value, nextNumber);
-            } catch {
-              continue;
-            }
-
-            if (result == null || !Number.isFinite(result)) continue;
-            if (Math.abs(result) > MAX_ABS) continue;
-
-            const nextUses = current.numberUses + 1;
-            const key = `${result}|${nextUses}`;
-
-            if (visited.has(key)) continue;
-            visited.add(key);
-
-            queue.push({
-              value: result,
-              expr: `(${current.expr} ${op.symbol} ${nextNumber})`,
-              numberUses: nextUses,
-              ops: current.ops + 1,
-            });
-          }
+          push({
+            value: r,
+            ops: ops + 1,
+            prev: current,
+            opSymbol: op.symbol,
+            right: nextNumber,
+          });
         }
       }
 
-      found.sort((a, b) => {
-        if (a.numberUses !== b.numberUses) return a.numberUses - b.numberUses;
-        if (a.ops !== b.ops) return a.ops - b.ops;
-        return a.expr.length - b.expr.length;
-      });
+      if (queue.length > MAX_STATES) {
+        queue.length = MAX_STATES;
+      }
+    }
 
-      setSolutions(found);
-      setSearching(false);
-    }, 20);
-  }
+    solutions.sort((a, b) => a.ops - b.ops);
+
+    setSolutions(solutions);
+    setSearching(false);
+  }, 10);
+}
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-gray-900 to-black text-white p-6">
