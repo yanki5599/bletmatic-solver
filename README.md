@@ -96,6 +96,7 @@ This ensures repeated runs are instant.
 ---
 
 ## 📁 Project Structure
+```text
 beltmatic-solver/
 │
 ├── public/
@@ -124,7 +125,7 @@ beltmatic-solver/
 ├── postcss.config.js
 ├── tsconfig.json
 └── README.md
-
+```
 
 ---
 
