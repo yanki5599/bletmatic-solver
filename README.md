@@ -1,73 +1,178 @@
-# React + TypeScript + Vite
+# 🧮 Beltmatic Solver
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A React + TypeScript puzzle solver that finds mathematical expressions to reach a target number using a given set of numbers and operations.
 
-Currently, two official plugins are available:
+The project explores multiple search strategies and expression-generation techniques, from simple BFS to experimental full expression tree generation.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+---
 
-## React Compiler
+## 🚀 Features
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- Find expressions that evaluate to a target number
+- Supports:
+  - Addition (+)
+  - Subtraction (-)
+  - Multiplication (*)
+  - Division (/ integer-only mode)
+- Multiple solving algorithms
+- Cached results (no recomputation for identical inputs)
+- Beautiful UI with Tailwind CSS
+- Full expression output with parentheses
 
-## Expanding the ESLint configuration
+---
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## 🧠 Algorithms
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+### 1. BFS (Breadth-First Search)
+- Expands states level by level
+- Fast and simple
+- Does not guarantee optimal expressions
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+**Best for:**
+- Small inputs
+- Fast approximate solutions
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+---
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### 2. Dijkstra (Cost-Based Search)
+- Prioritizes fewer operations
+- Uses pruning to avoid worse states
+- Produces better structured linear solutions
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+**Best for:**
+- More optimal solutions
+- Balanced performance + correctness
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+---
+
+### 3. TREE Algorithm ⚠️ Experimental
+- Generates full expression combinations like:
+  - `(a + b) * (c + d)`
+- Combines ANY two expressions
+- Produces full parenthesized structures
+
+⚠️ **Status: Experimental**
+
+Known issues:
+- Can become slow with larger inputs
+- High memory usage due to combinatorial explosion
+- Requires further pruning optimizations
+- May generate duplicate structures
+
+**Best for:**
+- Exploring full expression space
+- Maximum creativity / combinations
+
+---
+
+### 4. DFS (if added in future) ⚠️ Not recommended
+- Deep recursive exploration
+- Not optimized in this project
+- Can be inefficient for larger inputs
+
+---
+
+## ⚡ Performance Notes
+
+- Small inputs (≤ 30): instant results
+- Medium inputs (~100): depends on algorithm
+- TREE mode: can become slow quickly
+
+A caching system prevents recomputation of identical problems.
+
+---
+
+## 💾 Cache System
+
+Results are cached based on:
+
+- Target number
+- Input numbers
+- Selected operations
+- Algorithm type
+
+This ensures repeated runs are instant.
+
+---
+
+## 📁 Project Structure
+beltmatic-solver/
+│
+├── public/
+│   └── index.html
+│
+├── src/
+│   │
+│   ├── main.tsx
+│   ├── index.css
+│   ├── BeltmaticSolverApp.tsx
+│   │
+│   ├── components/
+│   │   └── SolverUI.tsx          # (optional split for UI later)
+│   │
+│   ├── solver/
+│   │   ├── types.ts             # shared TypeScript types
+│   │   ├── cache.ts             # caching system
+│   │   ├── algorithms.ts        # BFS / Dijkstra / TREE
+│   │   ├── solve.ts             # optional orchestration layer (can be merged)
+│   │
+│   └── assets/                  # optional images/icons
+│
+├── package.json
+├── vite.config.ts
+├── tailwind.config.js
+├── postcss.config.js
+├── tsconfig.json
+└── README.md
+
+
+---
+
+## 🛠 Tech Stack
+
+- React
+- TypeScript
+- Vite
+- Tailwind CSS
+
+---
+
+## 🔮 Future Improvements
+
+Planned upgrades:
+
+- 🧠 Optimized TREE engine (pruning + memoization)
+- ⚡ Web Worker execution (non-blocking UI)
+- 📊 Expression tree visualization
+- 🎮 Game-like Beltmatic mode
+- 🚀 Hybrid solver (Dijkstra + TREE optimization)
+
+---
+
+## ⚠️ Important Notes
+
+Some algorithms (especially TREE-based generation) are experimental and may:
+
+- Run slower on large inputs
+- Produce duplicate or redundant expressions
+- Require further optimization for production use
+
+They are included for research and experimentation purposes.
+
+---
+
+## 📄 License
+
+MIT (or your chosen license)
+
+---
+
+## ✨ Summary
+
+This project is a hybrid between:
+
+- Mathematical expression solver
+- Graph search engine
+- Expression tree generator
+
+Built for experimentation, optimization, and puzzle-solving exploration.  
